@@ -11,8 +11,10 @@ const { performance } = require('perf_hooks')
 const katex = require('katex')
 const sass = require('node-sass')
 const SVGO = require('svgo')
-const utils = require('./utils.js')
-const Cite = require('citation-js')
+const utils = require('./utils')
+
+// Automatic content generation, bibliography, ToC, figure list, etc.
+const generators = require('./generators')
 
 exports.mermaidToSvg = async function (mermaidPath, page) {
   var mermaidSpec = fs.readFileSync(mermaidPath, 'utf8')
@@ -194,6 +196,8 @@ exports.masterDocumentToPDF = async function (masterPath, page, tempHTML, output
   var headerTemplate = headerFooter.head
   var footerTemplate = headerFooter.foot
 
+  // Format defaults to letter, 8.5in x 11in
+  // Format is prioritized over width/height, so width/height should not do anything (need to test)
   var options = {
     path: outputPath,
     displayHeaderFooter: headerTemplate || footerTemplate,
@@ -209,12 +213,16 @@ exports.masterDocumentToPDF = async function (masterPath, page, tempHTML, output
   if (height) {
     options.height = height
   }
+
+  // TODO: remove, page.pdf(options) has no size parameter
+  //       https://github.com/GoogleChrome/puppeteer/blob/v1.4.0/docs/api.md#pagepdfoptions
   var size = utils.getMatch(html, /-relaxed-page-size: (\S+);/m)
   if (size) {
     options.size = size
   }
 
-  await renderBibliography(page)
+  await generators.bibliography(page)
+  await generators.ToC(page)
   
   await page.pdf(options)
 
@@ -240,74 +248,5 @@ async function getHeaderFooter(page) {
       head: head,
       foot: foot
     })
-  })
-}
-
-async function renderBibliography(page) {
-  const data = new Cite()
-
-  var values = await page.$$eval('.citation', nodes => {
-    var vals = nodes.map(node => {
-      return node.getAttribute('data-key')
-    })
-    return new Promise((resolve, reject) => {
-      resolve(vals)
-    })
-  }).catch(e => {
-    // Error occurs because there are no citations
-    return new Promise((resolve, reject) => {
-      resolve(false)
-    })
-  })
-
-  if (values == false) {
-    return false
-  }
-
-  values.forEach(val => data.add(val))
-
-  var result = await page.$$eval('.citation', (nodes, data) => {
-    for (var element of nodes) {
-      let key = element.getAttribute('data-key')
-      let page = element.getAttribute('data-page')
-      for (var datum of data) {
-        if (datum.id == key) {
-          if (page != '') {
-            element.innerHTML = `(${datum.author[0].family}, ${datum.issued['date-parts'][0][0]}, p. ${page})`
-          } else {
-            element.innerHTML = `(${datum.author[0].family}, ${datum.issued['date-parts'][0][0]})`
-          }
-          break
-        }
-      }
-    }
-  }, data.data)
-
-  var style = await page.$eval('#bibliography', element => {
-    return element.getAttribute('data-style')
-  }).catch(e => {
-    // Error occurs because there is no bibliography
-    return new Promise((resolve, reject) => {
-      resolve(false)
-    })
-  })
-
-  if (style == false) {
-    return false
-  }
-
-  const output = data.get({
-    format: 'string',
-    type: 'html',
-    style: style,
-    lang: 'en-US'
-  })
-
-  var final = await page.$eval('#bibliography', (element, data) => {
-    element.innerHTML = data
-  }, output)
-
-  return new Promise((resolve, reject) => {
-    resolve(true)
   })
 }

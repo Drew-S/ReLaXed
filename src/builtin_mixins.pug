@@ -28,3 +28,15 @@ mixin cite(key, page='')
 mixin bibliography(style='citation-apa')
     h1 Bibliography
     div(data-style=style)#bibliography
+
+mixin TableOfContents(maxDepth=3)
+  +ToC(maxDepth)
+
+//- Alias for Table of Contents
+mixin ToC(maxDepth=3)
+  div(data-depth=maxDepth)#table-of-contents
+
+//- Use this for new pages, so that ToC can generate page numbers properly
+//- when user forces a new page.
+mixin newPage
+  div(style="page-break-before: always;").new-page
