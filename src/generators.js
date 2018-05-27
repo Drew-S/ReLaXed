@@ -77,9 +77,51 @@ exports.ToC = async function(page) {
     }
     head += `h${i}, .new-page`
 
+    var margins = await page.$$eval('style', elements => {
+        for (var element of elements) {
+            if(/\@page\s*\{[\w\W]*\}/g.test(element.innerHTML)) {
+                return element.innerHTML.match(/\@page\s*\{[\w\W]*\}/g)[0]
+            }
+        }
+    })
+
+    var d = '\\s*:\\s*\\d+\\.*\\w+\\s*;'
+    var m = 'margin'
+
+    margins = new RegExp(`(${m}${d})|(${m}-top${d})|(${m}-left${d})|(${m}-right${d})|(${m}-bottom${d})`, 'g').exec(margins)
+
+    var sizes = {}
+
+    if (margins[1] != undefined) {
+        var size = Number(margins[1].match(/\d+\.*\d*/g)[0])
+        var type = /\d+\.*\d*(\w+)/g.exec(margins[1])[1]
+        size = convertSize(size, type)
+        sizes = {
+            top: size,
+            left: size,
+            bottom: size,
+            right: size
+        }
+    } else {
+        var convert = function(ind) {
+            if(margins[ind] == undefined) {
+                return 0
+            }
+        var size = Number(margins[ind].match(/\d+\.*\d*/g)[0])
+        var type = /\d+\.*\d*(\w+)/g.exec(margins[ind])[1]
+        return convertSize(size, type)
+        }
+        sizes = {
+            top: convert(2),
+            left: convert(3),
+            right: convert(4),
+            bottom: convert(5)
+        }
+    }
+
     await page.$eval('body', (body, width) => {
         body.width = `${width}px`
-    }, width)
+    }, width - sizes.left - sizes.right)
 
     var names = await page.$$eval(head, (elements, width, height) => {
         var elementsFixed = []
@@ -99,7 +141,7 @@ exports.ToC = async function(page) {
             })
         }
         return elementsFixed
-    }, width, height)
+    }, width, height - sizes.top - sizes.bottom)
 
     await page.$eval('#table-of-contents', (ToC, list) => {
         ToC.innerHTML = list
@@ -108,12 +150,14 @@ exports.ToC = async function(page) {
     var pageNumbers = await page.$$eval(head, (elements, width, height) => {
         var elementsFixed = []
         var p = 1
+        var newPageError = 0
         for (var element of elements) {
             if (/new\-page/g.test(element.className)) {
+                newPageError = (p * height) - (element.offsetTop + element.offsetHeight)
                 p++
                 continue
             }
-            while(element.offsetTop + element.offsetHeight >= p * height) {
+            while(element.offsetTop + element.offsetHeight + newPageError >= p * height) {
                 p++
             }
             elementsFixed.push({
@@ -123,8 +167,6 @@ exports.ToC = async function(page) {
         }
         return elementsFixed
     }, width, height)
-
-    console.log(pageNumbers)
 
     await page.$$eval('.ToC-link', (elements, pageNumbers) => {
         for (var element of elements) {
@@ -140,6 +182,36 @@ exports.ToC = async function(page) {
     return true
 }
 
+function convertSize(size, type) {
+    const ppi = 96
+    const ppc = 2.54 * ppi
+    const pt = 96/72
+    const pc = 12 * pt
+    switch (type) {
+        case 'px':
+            return size
+            break
+        case 'mm':
+            return size * ppc * 10
+            break
+        case 'cm':
+            return size * ppc
+            break
+        case 'in':
+            return size * ppi
+            break
+        case 'pt':
+            return size * pt
+            break
+        case 'pc':
+            return size * pc
+            break
+        default:
+            return size
+            break
+    }
+}
+
 function makeList(items) {
     var depth = 1
     var list = `<ul class='table-of-contents-list'>`
@@ -151,7 +223,13 @@ function makeList(items) {
             list += '</ul>'
             depth--
         }
-        list += `<li class='ToC-link' data-linked='${item.id}' id='${item.id.replace('heading', 'link')}'><span class='ToC-link-heading'>${item.text}</span><span class='ToC-link-page-number'>{{PAGEHOLDER}}</span></li>`
+        list += `
+            <li class='ToC-link'
+                data-linked='${item.id}'
+                id='${item.id.replace('heading', 'link')}'>
+                <span class='ToC-link-heading'>${item.text}</span>
+                <span class='ToC-link-page-number'>{{PAGEHOLDER}}</span>
+            </li>`
     }
     return list + '</ul>'
 }
