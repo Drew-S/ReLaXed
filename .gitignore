@@ -71,11 +71,7 @@ test/samples/*/master_temp.htm
 
 package-lock.json
 
-<<<<<<< HEAD
 # linux
-=======
-# linux .directory
->>>>>>> debb86ff50e779467477e991ed8374af7343d86f
 .directory
 
 # VS code
