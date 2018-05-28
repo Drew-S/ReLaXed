@@ -6,15 +6,14 @@ const cheerio = require('cheerio')
 const path = require('path')
 const csv = require('csvtojson')
 const html2jade = require('html2jade')
-const colors = require('colors')
+const colors = require('colors/safe')
 const { performance } = require('perf_hooks')
 const katex = require('katex')
 const sass = require('node-sass')
 const SVGO = require('svgo')
 const utils = require('./utils')
 
-// Automatic content generation, bibliography, ToC, figure list, etc.
-const generators = require('./generators')
+const generate = require('./generators')
 
 exports.mermaidToSvg = async function (mermaidPath, page) {
   var mermaidSpec = fs.readFileSync(mermaidPath, 'utf8')
@@ -116,7 +115,7 @@ exports.tableToPug = function (tablePath) {
           header = null
         }
         var html = utils.formatTemplate('table', { header: header, tbody: rows })
-        var pugPath = tablePath.substr(0, tablePath.length - extension.length) + '.pug'
+        var pugPath = tablePath.substr(0,tablePath.length - extension.length) + '.pug'
         html2jade.convertHtml(html, {bodyless: true}, function (err, jade) {
           if (err) {
             console.log(err)
@@ -155,6 +154,8 @@ exports.masterDocumentToPDF = async function (masterPath, page, tempHTML, output
         fs: fs,
         cheerio: cheerio,
         basedir: path.dirname(masterPath),
+        path: path,
+        performance: performance,
         filters: {
           katex: (text, options) => katex.renderToString(text),
           scss: function (text, options) {
@@ -166,7 +167,7 @@ exports.masterDocumentToPDF = async function (masterPath, page, tempHTML, output
       })
     } catch (error) {
       console.log(error.message)
-      console.error('There was a Pug error (see above)'.red)
+      console.error(colors.red('There was a Pug error (see above)'))
       return
     }
   } else {
@@ -181,15 +182,15 @@ exports.masterDocumentToPDF = async function (masterPath, page, tempHTML, output
   await writeFile(tempHTML, html)
 
   var tHTML = performance.now()
-  console.log(`... HTML generated in ${((tHTML - t0) / 1000).toFixed(1)}s`.magenta)
+  console.log(colors.magenta(`... HTML generated in ${((tHTML - t0) / 1000).toFixed(1)}s`))
 
   await page.goto('file:' + tempHTML, {waitUntil: ['load', 'domcontentloaded']})
   var tLoad = performance.now()
-  console.log(`... Document loaded in ${((tLoad - tHTML) / 1000).toFixed(1)}s`.magenta)
+  console.log(colors.magenta(`... Document loaded in ${((tLoad - tHTML) / 1000).toFixed(1)}s`))
 
   await utils.waitForNetworkIdle(page, 200)
   var tNetwork = performance.now()
-  console.log(`... Network idled in ${((tNetwork - tLoad) / 1000).toFixed(1)}s`.magenta)
+  console.log(colors.magenta(`... Network idled in ${((tNetwork - tLoad) / 1000).toFixed(1)}s`))
 
   var headerFooter = await getHeaderFooter(page)
 
@@ -221,13 +222,13 @@ exports.masterDocumentToPDF = async function (masterPath, page, tempHTML, output
     options.size = size
   }
 
-  await generators.bibliography(page)
-  await generators.ToC(page, width, height)
+  await generate.bibliography(page)
+  await generate.ToC(page, width, height)
   
   await page.pdf(options)
 
   var tPDF = performance.now()
-  console.log(`... PDF written in ${((tPDF - tLoad) / 1000).toFixed(1)}s`.magenta)
+  console.log(colors.magenta(`... PDF written in ${((tPDF - tLoad) / 1000).toFixed(1)}s`))
 }
 
 async function getHeaderFooter(page) {
@@ -235,14 +236,14 @@ async function getHeaderFooter(page) {
     .catch(e => '')
   var foot = await page.$eval('#page-footer', e => e.outerHTML)
     .catch(e => '')
-  
+
   if(head != '' && foot == '') {
     foot = '<span></span>'
   }
   if(foot != '' && head == '') {
     head = '<span></span>'
   }
-  
+
   return new Promise((resolve, reject) => {
     resolve({
       head: head,
