@@ -4,7 +4,7 @@ exports.bibliography = async function (page) {
         return nodes.map(node => {
             return node.getAttribute('data-key')
         })
-        // Error occurs because there are no citations
+    // Error occurs because there are no citations
     }).catch(e => { return false })
 
     if (!values)  return false
@@ -17,27 +17,25 @@ exports.bibliography = async function (page) {
 
     var result = await page.$$eval('.citation', (nodes, data) => {
         for (var element of nodes) {
-        let key = element.getAttribute('data-key')
-        let page = element.getAttribute('data-page')
-        for (var datum of data) {
-            if (datum.id == key) {
-            if (page != '') {
-                element.innerHTML = `(${datum.author[0].family}, ${datum.issued['date-parts'][0][0]}, p. ${page})`
-            } else {
-                element.innerHTML = `(${datum.author[0].family}, ${datum.issued['date-parts'][0][0]})`
+            let key = element.getAttribute('data-key')
+            let page = element.getAttribute('data-page')
+            for (var datum of data) {
+                if (datum.id == key) {
+                if (page != '') {
+                    element.innerHTML = `(${datum.author[0].family}, ${datum.issued['date-parts'][0][0]}, p. ${page})`
+                } else {
+                    element.innerHTML = `(${datum.author[0].family}, ${datum.issued['date-parts'][0][0]})`
+                }
+                break
+                }
             }
-            break
-            }
-        }
         }
     }, data.data)
 
     var style = await page.$eval('#bibliography', element => {
         return element.getAttribute('data-style')
-    }).catch(e => {
-        // Error occurs because there is no bibliography
-        return false
-    })
+    // Error occurs because there is no bibliography
+    }).catch(e => { return false })
 
     if (!style) return false
 
@@ -55,16 +53,16 @@ exports.bibliography = async function (page) {
     return true
 }
 
-exports.ToC = async function(page) {
-    const ppi = 96
-    var width = 8.5 * ppi
-    var height = 11 * ppi
-
+exports.ToC = async function(page, width, height) {
+    if (typeof width === 'string') width = convertSize(width)
+    else if (!width) width = 8.5 * 96
+    if (typeof height === 'string') height = convertSize(height)
+    else if (!height) height = 11 * 96
+    
     var depth = await page.$eval('#table-of-contents', ToC => {
         return ToC.getAttribute('data-depth')
-    }).catch(e => {
-        return false
-    })
+    // Error occurs because there is no table of contents
+    }).catch(e => { return false })
 
     if (!depth) return false
 
@@ -72,9 +70,7 @@ exports.ToC = async function(page) {
 
     var head = ''
 
-    for (var i=1; i<depth; i++) {
-        head += `h${i}, `
-    }
+    for (var i=1; i<depth; i++) { head += `h${i}, ` }
     head += `h${i}, .new-page`
 
     var margins = await page.$$eval('style', elements => {
@@ -93,9 +89,7 @@ exports.ToC = async function(page) {
     var sizes = {}
 
     if (margins[1] != undefined) {
-        var size = Number(margins[1].match(/\d+\.*\d*/g)[0])
-        var type = /\d+\.*\d*(\w+)/g.exec(margins[1])[1]
-        size = convertSize(size, type)
+        size = convertSize(margins[1])
         sizes = {
             top: size,
             left: size,
@@ -107,9 +101,7 @@ exports.ToC = async function(page) {
             if(margins[ind] == undefined) {
                 return 0
             }
-        var size = Number(margins[ind].match(/\d+\.*\d*/g)[0])
-        var type = /\d+\.*\d*(\w+)/g.exec(margins[ind])[1]
-        return convertSize(size, type)
+        return convertSize(margins[ind])
         }
         sizes = {
             top: convert(2),
@@ -182,32 +174,26 @@ exports.ToC = async function(page) {
     return true
 }
 
-function convertSize(size, type) {
+function convertSize(size) {
+    var num = Number(size.match(/\d+\.*\d*/g)[0])
+    var type = /\d+\.*\d*(\w+)/g.exec(size)[1]
     const ppi = 96
     const ppc = 2.54 * ppi
-    const pt = 96/72
-    const pc = 12 * pt
     switch (type) {
         case 'px':
-            return size
+            return num
             break
         case 'mm':
-            return size * ppc * 10
+            return num * ppc * 10
             break
         case 'cm':
-            return size * ppc
+            return num * ppc
             break
         case 'in':
-            return size * ppi
-            break
-        case 'pt':
-            return size * pt
-            break
-        case 'pc':
-            return size * pc
+            return num * ppi
             break
         default:
-            return size
+            return num
             break
     }
 }

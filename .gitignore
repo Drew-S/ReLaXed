@@ -71,5 +71,9 @@ test/samples/*/master_temp.htm
 
 package-lock.json
 
-# linux .directory
+# linux
 .directory
+
+# VS code
+.vscode
+.eslintrc.json

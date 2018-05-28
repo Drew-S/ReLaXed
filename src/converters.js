@@ -222,7 +222,7 @@ exports.masterDocumentToPDF = async function (masterPath, page, tempHTML, output
   }
 
   await generators.bibliography(page)
-  await generators.ToC(page)
+  await generators.ToC(page, width, height)
   
   await page.pdf(options)
 
