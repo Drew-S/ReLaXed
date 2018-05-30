@@ -9,11 +9,15 @@ describe('Sample tests', function() {
   var tests = [
     {
       sampleName: 'basic_example',
-      timeout: 10000
+      timeout: 30000
     },
     {
       sampleName: 'bibliography_example',
-      timeout: 10000
+      timeout: 30000
+    },
+    {
+      sampleName: 'ToC_example',
+      timeout: 30000
     }
   ]
   tests.forEach(function(test) {
