@@ -6,8 +6,6 @@ const mathjax = require('./mathjax')
 const vegalite = require('./vegalite')
 const mermaid = require('./mermaid')
 const flowchart = require('./flowchart')
-const pageNumber = require('./pagenumbers')
-const tableofcontents = require('./tableofcontents')
 
 // THESE ARE PLUGINS THAT CAN BE LOADED VIA CONFIG.PY
 // WE WILL CERTAINLY TAKE OUT MOST OF THEM, AS SEPARATE PLUGINS
@@ -15,9 +13,7 @@ const tableofcontents = require('./tableofcontents')
 exports.plugins = {
   bibliography,
   mathjax,
-  svg,
-  pageNumber,
-  tableofcontents
+  svg
 }
 
 // THESE ARE PLUGINS ADDING NO OVERHEAD, SO SAFE TO BE USED BY DEFAULT
